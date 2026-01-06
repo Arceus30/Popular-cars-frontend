@@ -1,18 +1,18 @@
 "use client";
-import axios from "axios";
-import VehicleTabs from "@/components/VehicleTabs";
-import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { carBodies } from "@/carBodies";
+import { useState, useEffect } from "react";
+import { fetchCars } from "@/utils/fetchCar";
+import SkeletonCard from "@/components/SkeletonCard";
 
-export default function VehicleSelector() {
-    const [selectedType, setSelectedType] = useState("SUV");
+export default function Home() {
+    const [selectedType, setSelectedType] = useState("Hatchback");
     const [vehicles, setVehicles] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [maxIndex, setMaxIndex] = useState(0);
 
     const CARDS_PER_VIEW = 4;
-    let MAX_INDEX = 0;
 
     useEffect(() => {
         fetchVehicles();
@@ -22,51 +22,28 @@ export default function VehicleSelector() {
         setLoading(true);
         setCurrentIndex(0);
         try {
-            const response = await axios.get(
-                `https://popular-cars.onrender.com/popular-cars/api?q=${selectedType}`
-            );
-            let data = await response.data.cars;
+            const res = await fetchCars(selectedType);
+            let data = res.cars || [];
             data = data.sort((a, b) => b.interestScore - a.interestScore);
-            MAX_INDEX = Math.max(0, vehicles.length - CARDS_PER_VIEW);
             setVehicles(data);
+            setMaxIndex(Math.max(0, data.length - CARDS_PER_VIEW));
         } catch (error) {
             console.error("Error fetching vehicles:", error);
-            setVehicles(mockData);
+            setVehicles([]);
+            setMaxIndex(0);
         } finally {
             setLoading(false);
         }
     };
 
-    const goToNext = useCallback(() => {
-        if (currentIndex >= MAX_INDEX) return;
-        setCurrentIndex((prev) => Math.min(MAX_INDEX, prev + 1));
-    }, [currentIndex, MAX_INDEX]);
+    const goToNext = () => {
+        if (currentIndex >= maxIndex) return;
+        setCurrentIndex((prev) => Math.min(maxIndex, prev + 1));
+    };
 
-    const goToPrevious = useCallback(() => {
+    const goToPrevious = () => {
         if (currentIndex === 0) return;
         setCurrentIndex((prev) => Math.max(0, prev - 1));
-    }, [currentIndex]);
-
-    const cardVariants = {
-        initial: { x: "100%", opacity: 0, scale: 0.95 },
-        animate: {
-            x: 0,
-            opacity: 1,
-            scale: 1,
-            transition: {
-                duration: 0.35,
-                ease: [0.25, 0.46, 0.45, 0.94],
-            },
-        },
-        exit: {
-            x: "-100%",
-            opacity: 0,
-            scale: 0.95,
-            transition: {
-                duration: 0.35,
-                ease: [0.25, 0.46, 0.45, 0.94],
-            },
-        },
     };
 
     const visibleVehicles = vehicles.slice(
@@ -75,111 +52,75 @@ export default function VehicleSelector() {
     );
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
-            <VehicleTabs
-                setSelectedType={setSelectedType}
-                selectedType={selectedType}
-            />
-            {/* Carousel Controls */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex gap-2">
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={goToPrevious}
-                        disabled={currentIndex === 0}
-                        className="p-2 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+        <div className="p-6 mx-5">
+            <div className="flex border-gray-300 border-b mb-8 pb-4">
+                {carBodies.map((type) => (
+                    <button
+                        key={type}
+                        onClick={() => setSelectedType(type)}
+                        className={`px-4 py-2 mx-1 font-medium rounded-t-lg transition-all cursor-pointer hover:text-blue-500 ${
+                            selectedType === type
+                                ? "border-b-3 border-blue-500 shadow-lg"
+                                : "text-gray-600 hover:border-b-2 hover:border-blue-500"
+                        }`}
                     >
-                        <svg
-                            className="w-5 h-5 text-gray-700"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15 19l-7-7 7-7"
-                            />
-                        </svg>
-                    </motion.button>
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={goToNext}
-                        disabled={currentIndex === MAX_INDEX}
-                        className="p-2 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <svg
-                            className="w-5 h-5 text-gray-700"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 5l7 7-7 7"
-                            />
-                        </svg>
-                    </motion.button>
-                </div>
+                        {type}
+                    </button>
+                ))}
             </div>
+            <div className="flex items-center mb-6 px-2 gap-5">
+                <button
+                    onClick={goToPrevious}
+                    disabled={currentIndex === 0}
+                    className="min-w-8 rounded-full pt-1 pb-2 pl-1 border border-gray-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:scale-[1.05] font-extrabold text-3xl"
+                >
+                    ←
+                </button>
 
-            {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {Array(4)
-                        .fill(0)
-                        .map((_, i) => (
-                            <div key={i} className="animate-pulse">
-                                <div className="bg-gray-200 h-48 rounded-lg mb-4"></div>
-                                <div className="h-6 bg-gray-200 rounded mb-2"></div>
-                                <div className="h-5 bg-gray-200 rounded w-3/4"></div>
-                            </div>
-                        ))}
+                <div className="flex gap-6 justify-center items-center">
+                    {loading
+                        ? Array(4)
+                              .fill(0)
+                              .map((_, i) => <SkeletonCard key={i} />)
+                        : visibleVehicles.map((vehicle, index) => (
+                              <div
+                                  key={`${vehicle.make}-${vehicle.model}-${
+                                      currentIndex + index
+                                  }`}
+                                  className="w-80 h-80 border border-gray-200 rounded-xl flex flex-col items-start cursor-pointer hover:shadow-md"
+                              >
+                                  <div className="relative w-full h-48">
+                                      <Image
+                                          src={vehicle.imageUrl}
+                                          alt={`${vehicle.make} ${vehicle.model}`}
+                                          fill
+                                          className="object-cover rounded-t-lg"
+                                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                                          priority={index < 2}
+                                      />
+                                  </div>
+                                  <div className="mt-4 pl-2">
+                                      <h3 className="text-lg font-bold text-gray-900">
+                                          {vehicle.make} {vehicle.model}
+                                      </h3>
+                                      <p className="text-md font-bold text-blue-600 mb-2">
+                                          Starting at $
+                                          {vehicle.startingPrice?.toLocaleString()}
+                                          *
+                                      </p>
+                                  </div>
+                              </div>
+                          ))}
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-hidden">
-                    <AnimatePresence mode="popLayout">
-                        {visibleVehicles.map((vehicle, index) => (
-                            <motion.div
-                                key={`${vehicle.make}-${vehicle.model}-${
-                                    currentIndex + index
-                                }`}
-                                className="group cursor-pointer hover:shadow-xl border rounded-xl overflow-hidden"
-                                variants={cardVariants}
-                                initial="initial"
-                                animate="animate"
-                                exit="exit"
-                                layout
-                            >
-                                <div className="relative w-full h-48">
-                                    <Image
-                                        src={vehicle.imageUrl}
-                                        alt={`${vehicle.make} ${vehicle.model}`}
-                                        fill
-                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                        priority={index < 2}
-                                    />
-                                </div>
-                                <div className="p-6">
-                                    <h3 className="text-xl font-bold text-gray-900 mb-4">
-                                        {vehicle.make} {vehicle.model}
-                                    </h3>
-                                    <p className="text-2xl font-bold text-blue-600 mb-2">
-                                        Starting at $
-                                        {vehicle.startingPrice?.toLocaleString()}
-                                        *
-                                    </p>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                </div>
-            )}
+
+                <button
+                    onClick={goToNext}
+                    disabled={currentIndex === maxIndex}
+                    className="min-w-8 rounded-full pt-1 pb-2 pr-1 border border-gray-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:scale-[1.05] font-extrabold text-3xl"
+                >
+                    →
+                </button>
+            </div>
         </div>
     );
 }
